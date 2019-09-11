@@ -1,0 +1,25 @@
+---
+- name: "Upgrade services group with apt-get"
+  hosts: "services"
+  become: yes
+  gather_facts: false
+  serial: "25%"
+
+  tasks:
+  - name: apt | update APT package cache and Upgrade packages
+    apt:
+      upgrade: dist
+      autoremove: yes
+      autoclean: yes
+      update_cache: yes
+      cache_valid_time: 3600
+    retries: 5
+    delay: 3
+    register: result
+
+  - name: shell | list installed and updated packages
+    shell: grep -E "^$(date +%Y-%m-%d).+ (install|upgrade) " /var/log/dpkg.log |cut -d " " -f 3-5
+    register: result
+    
+  - name: debug | Show updated and upgraded packages
+    debug: msg="{{ result.stdout_lines }}"
