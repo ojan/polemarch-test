@@ -1,0 +1,136 @@
+---
+- name: Complete common container build
+  hosts: all
+  vars:
+    ansible_python_interpreter: "/usr/bin/python3"
+    os_auditd_enabled: false
+    lxd_lxc_binary: /snap/bin/lxc
+  gather_facts: yes
+  tasks:
+
+  - name: block | Various apt operations
+    block:
+      - name: apt | unused packages should be absent
+        apt:
+          name: "{{ packages }}"
+          state: absent
+        vars:
+          packages:
+            - lxd
+            - lxc-common
+            - dnsmasq-base
+            - snapd
+            - open-iscsi
+            - snap-confine
+            - usbutils
+            - lvm2
+            - lxd-client
+            - ntfs-3g
+            - parted
+            - pciutils
+            - screen
+            - xfsprogs
+            - tmux
+            - cryptsetup
+            - cryptsetup-bin
+            - accountsservice
+            - eject
+            - dosfstools
+            - mdadm
+            - pastebinit
+            - open-vm-tools
+            - hdparm
+            - ufw
+            - tcpdump
+            - btrfs-tools
+            - kmod
+            - popularity-contest
+            - sosreport
+            - python2.7-minimal
+            - ubuntu-advantage-tools
+            - vim
+            - vi
+
+      - name: apt | apt packages should be upgraded
+        apt:
+          update_cache: yes 
+          cache_valid_time: 3600
+          upgrade: dist
+
+      - name: apt | necessary packages should be present
+        apt:
+          name: "{{ packages }}"
+          state: present
+        vars:
+          packages:
+            - tzdata
+            - nano
+
+  - name: block | Various system operations
+    block:
+
+      - name: lineinfile | 'sudo' group should be configured without passwd prompt
+        lineinfile:
+          path: /etc/sudoers
+          state: present
+          regexp: '^%sudo\s'
+          line: '%sudo ALL=(ALL) NOPASSWD: ALL'
+
+      - name: file | ansible facts directory should be present
+        become: yes
+        file:
+          path: "/etc/ansible/facts.d"
+          state: directory
+          owner: "root"
+          group: "root"
+          mode: 0755
+
+  - name: block | Various user operations
+    block:
+      - name: user | ubuntu user should be absent
+        user:
+          name: "ubuntu"
+
+      - name: file | authorized_keys file permission should be readable only for ansible user
+        file:
+          path: "/home/ubuntu/.ssh/authorized_keys"
+          owner: "ubuntu"
+          group: "ubuntu"
+          mode: 0600
+
+  # - name: block | Hardening system and ssh
+  #   block:
+  #     - import_role:
+  #         name: adista.os-hardening
+
+      # - import_role:
+      #     name: adista.ssh-hardening
+
+  - name: block | some cleanup and tests after build
+    block:
+      - name: file | root authorized_keys file should be absent
+        file:
+          state: absent
+          path: "/root/.ssh/authorized_keys"
+
+      - name: apt | dependencies that are no longer required should be absent
+        apt:
+          autoremove: yes
+
+      - name: shell | apt packages archives should be cleaned
+        shell: apt-get clean
+        args:
+          warn: false # set warn=false to prevent warning
+
+      - name: service | ssh service should be enabled at boot and started
+        service:
+          name: ssh 
+          state: started
+          enabled: yes
+
+      - name: wait_for | port '22' should be opened
+        wait_for:
+          host: 0.0.0.0
+          port: 22
+          state: started
+          timeout: 30
