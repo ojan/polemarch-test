@@ -1,0 +1,44 @@
+---
+- hosts: localhost
+  gather_facts: no
+  become: no
+  vars:
+    - key_lookup: "{{ lookup('redis', 'cluster_lxd_dev', host='awf-redis-01', port=6379) | from_json }}"
+    - containers_list: "{{ key_lookup | json_query('[*]') }}"
+  vars_prompt:
+  - name: container_name
+    prompt: Container Name
+    private: no
+  tasks:
+
+  - set_fact:
+      ansible_lxd_key_lookup: "{{ lookup('redis', 'ansible_lxd_' + container_name, host='awf-redis-01', port=6379) | from_json }}"
+
+  - name: debug | lxc containers running in cluster
+    debug:
+      msg: "{{ containers_list | json_query('[].name' )}}"
+
+  - name: debug | '{{ container_name }}' lxc info from lxd api
+    vars:
+      - query: "{{ item }}"
+    debug:
+      msg: "{{ containers_list | json_query(query) }}"
+    with_items: 
+      - "[?name==`{{ container_name }}`].location"
+      - "[?name==`{{ container_name }}`].state.status_code"
+      - "[?name==`{{ container_name }}`].state.pid"
+      - "[?name==`{{ container_name }}`].state.processes"
+
+  - name: debug | lxc containers running in cluster
+    debug:
+      msg: "{{ ansible_lxd_key_lookup }}"
+
+  - name: debug | '{{ container_name }}' lxc info from lxd api
+    vars:
+    debug:
+      msg: "{{ item }}"
+    with_items: 
+      - "{{ ansible_lxd_key_lookup.location }}"
+      - "{{ ansible_lxd_key_lookup.status_code }}"
+      # - "{{ ansible_lxd_key_lookup.state.pid }}"
+      # - "{{ ansible_lxd_key_lookup.state.processes }}"

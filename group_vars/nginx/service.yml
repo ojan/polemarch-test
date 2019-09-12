@@ -1,0 +1,30 @@
+---
+nginx:
+  name: nginx
+  port: 8080
+  user:
+    name: www-data
+    uid: 33
+  group: 
+    name: www-data
+    gid: 33
+  deploy:
+    type: ppa
+    upstream: "ppa:nginx"
+  configure:
+    files:
+      conf: "application/conf/nginx/"
+      svc: "nginx.service"
+  version:
+    cmd: "nginx --version 2>&1"
+    args: ""
+  paths:
+    svc: "/lib/systemd/system/"
+    bin: "/usr/sbin"
+    log: "/var/log"
+    pid: "/var/run"
+    conf: "/etc/"
+    data: "/var/www/html"
+  system:
+    os: "{{ ansible_os }}"
+    arch: "{{ ansible_arch }}"

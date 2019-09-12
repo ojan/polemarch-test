@@ -1,0 +1,34 @@
+---
+- hosts: localhost
+  become: no
+  vars:
+    tmp_dir: /tmp/lxc
+    lxd_file: /tmp/lxd.json
+  gather_facts: no
+  environment:
+    - ANSIBLE_TF_DIR: tform
+  tasks:
+    - name: Get all containers lxd.json via LXD API
+      shell: lxc query "/1.0/containers?recursion=1&project=default" > {{ lxd_file }}
+      args:  
+        warn: false
+
+- hosts: all
+  become: no
+  gather_facts: no
+  vars:
+    tmp_dir: /tmp/lxc
+    lxd_file: /tmp/lxd.json
+    redis_ttl: 86400
+  tasks:
+    - name: Parse lxd.json response and send result for each host in redis
+      block:      
+        - name: Prepare lxc_fact for each host on lxc_lxd_host from {{ lxd_file }}
+          environment:
+            host: "{{ inventory_hostname }}"
+          shell: cat {{ lxd_file }} | jq '.[] | select(.name==env.host)' > {{ tmp_dir }}/{{ inventory_hostname }}.json
+      
+        - name: Put /tmp/ansible_hostname.json content to redis server
+          shell: redis-cli -h awf-redis-01 -x setex ansible_lxd_{{ inventory_hostname }} {{ redis_ttl }} < {{ tmp_dir }}/{{ inventory_hostname }}.json
+      delegate_to: "localhost"
+
