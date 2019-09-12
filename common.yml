@@ -66,6 +66,8 @@
           packages:
             - tzdata
             - nano
+            - aptitude
+            - bash-completion
 
   - name: block | Various system operations
     block:
